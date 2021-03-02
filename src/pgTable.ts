@@ -1,32 +1,10 @@
-import {Table, WritableTable} from 'tablevc';
-import {IBaseProtocol} from 'pg-promise';
-import {omit} from 'lodash';
-import {
-  alias,
-  and,
-  count,
-  createDBTbl,
-  equals,
-  Id,
-  IDBTable,
-  list,
-  prm,
-  SQLExpression,
-  sqlIn,
-  TableDefinition,
-  tbl,
-  value
-} from 'yaso';
-import {KeyFilter, TableTransactionBody} from '../../tablevc/src';
-import {objChanges} from './objChanges';
+import {KeyFilter, Table, TableTransactionBody, WritableTable} from 'tablevc'
+import {IBaseProtocol} from 'pg-promise'
+import {omit} from 'lodash'
+import {alias, and, count, createDBTbl, equals, Id, IDBTable, list, prm, SQLExpression, sqlIn, tbl, value} from 'yaso'
+import {objChanges} from './objChanges'
 import {TableFieldUpdates} from 'yaso/lib/query/types'
-
-export interface PgTablePrms<RecordType> {
-  tblDef: TableDefinition<RecordType>;
-  pgDb: IBaseProtocol<any>;
-  keyField: keyof RecordType;
-  qryBaseCond?: SQLExpression;
-}
+import {PgTablePrms} from './types'
 
 export class PgTable<RecordType>
   implements Table<RecordType>, WritableTable<RecordType> {
@@ -184,3 +162,9 @@ function createPrmsMap<RecordType>(
   }
   return outPrms as MappedPrms<RecordType>;
 }
+
+export const createPgTable = <RecordType>(
+  prms: PgTablePrms<RecordType>
+): Table<RecordType> => {
+  return new PgTable(prms);
+};

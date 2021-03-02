@@ -1,32 +1,17 @@
 import {
+  commitIdForOperation,
+  HistoryInit,
+  HistoryOperationType,
+  Id,
   MemoryTableVersionHistory,
   TableHistoryEntry,
-  TableVersionHistory,
-  Id,
-  commitIdForOperation
+  TableVersionHistory
 } from 'tablevc';
-import {equals, moreOrEqual, moreThan, prm, TableDefinition, tbl} from 'yaso';
+import {equals, moreOrEqual, prm, selectFrom, TableDefinition, tbl} from 'yaso';
 import {IBaseProtocol} from 'pg-promise';
-import {HistoryInit, HistoryOperationType} from '../../tablevc/src';
-import {
-  deEscapeFromJson,
-  EscapedObject,
-  escapeForJson
-} from './jsonEncoding';
-
-export interface TableHistoryTable<RecordType> {
-  _id: Id;
-  commitId: string;
-  createdAt: Date;
-  historyEntry: TableHistoryEntry<RecordType>;
-}
-
-export interface PgTableVersionHistoryCreateProps<RecordType> {
-  pgDb: IBaseProtocol<any>;
-  historyTblDef: TableDefinition<TableHistoryTable<RecordType>>;
-  fromCommitId?: string;
-  who?: Id;
-}
+import {deEscapeFromJson, EscapedObject, escapeForJson} from './jsonEncoding';
+import {PgTableVersionHistoryCreateProps, TableHistoryTable} from './types';
+import {SelectQuery} from 'yaso/lib/query/types';
 
 export class PgTableVersionHistory<RecordType>
   extends MemoryTableVersionHistory<RecordType>
@@ -40,8 +25,9 @@ export class PgTableVersionHistory<RecordType>
     fromCommitId,
     historyTblDef,
     who
-  }: PgTableVersionHistoryCreateProps<RecordType>): Promise<PgTableVersionHistory<RecordType>> {
-    let minLogTblId: null | Id = null;
+  }: PgTableVersionHistoryCreateProps<RecordType>): Promise<
+    PgTableVersionHistory<RecordType>
+  > {
     if (fromCommitId) {
       const historyEntries = await loadHistoryEntries(
         pgDb,
@@ -115,12 +101,16 @@ export class PgTableVersionHistory<RecordType>
       await super.push(entry);
       return this.length;
     });
-  }
+  };
 
   public refreshFromStorage = async () => {
     const lastCommitId = this.lastCommitId();
     if (lastCommitId) {
-      const addedEntries = await loadHistoryEntries(this.pgDb, this.historyTblDef, lastCommitId);
+      const addedEntries = await loadHistoryEntries(
+        this.pgDb,
+        this.historyTblDef,
+        lastCommitId
+      );
       for (const entry of addedEntries) {
         if (this.indexOf(entry.commitId) === -1) {
           await super.push(entry);
@@ -128,7 +118,7 @@ export class PgTableVersionHistory<RecordType>
       }
     }
     return this.length;
-  }
+  };
 }
 
 async function insertLogRecord<RecordType>(
@@ -137,12 +127,12 @@ async function insertLogRecord<RecordType>(
   commitId: string,
   historyEntry: TableHistoryEntry<RecordType>
 ) {
-  const addSql = tbl(historyTblDef).insertQrySql(hTbl => ({
+  const addSql = tbl(historyTblDef).insertQrySql({
     fields: {
       commitId: prm('commitId'),
       historyEntry: prm('historyEntry')
     }
-  }));
+  });
   return db.none(addSql, {
     commitId,
     historyEntry: escapeForJson(historyEntry)
@@ -155,6 +145,7 @@ async function loadHistoryEntries<RecordType>(
   fromCommitId?: string
 ): Promise<TableHistoryEntry<RecordType>[]> {
   let sql: string;
+  let needsReverse = false;
   if (fromCommitId) {
     let minLogTblId: Id | null = null;
     const minIdRec = await pgDb.task<{_id: Id}>(db =>
@@ -171,14 +162,19 @@ async function loadHistoryEntries<RecordType>(
       orderByFields: [{field: hTbl.cols._id}]
     }));
   } else {
-    sql = tbl(historyTblDef).selectQrySql(hTbl => ({
-      orderByFields: [{field: hTbl.cols._id}]
-    }));
+    needsReverse = true;
+    sql = selectFrom(
+      tbl(historyTblDef).selectQry(hTbl => ({
+        orderByFields: [{field: hTbl.cols._id, isDesc: true}]
+      })) as SelectQuery<TableHistoryTable<RecordType>>,
+      rs => {rs.maxRows(10)}
+    ).toSql();
   }
   const historyEntries = await pgDb.task<
     EscapedObject<TableHistoryEntry<RecordType>>[]
   >(db => db.any(sql, fromCommitId ? {fromCommitId} : {}));
-  return historyEntries.map(entry =>
+  const entries = historyEntries.map(entry =>
     deEscapeFromJson(entry)
   ) as TableHistoryEntry<RecordType>[];
+  return needsReverse ? entries.reverse() : entries;
 }

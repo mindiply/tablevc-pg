@@ -1,23 +1,30 @@
 import {IBaseProtocol} from 'pg-promise';
 import {equals, max, sqlIn, TableDefinition, tbl} from 'yaso';
-import {TableHistoryTable} from './pgTableVersionHistory';
+import {
+  PgTableVersionHistory
+} from './pgTableVersionHistory';
 import {SelectQuery} from 'yaso/lib/query/types';
-import {Id, TableHistoryEntry} from '../../tablevc';
+import {
+  createVersionedTable,
+  TableHistoryEntry,
+  TableVersionHistory,
+  VersionedTable
+} from 'tablevc';
+import {PgTableVersionHistoryCreateProps, PgVersionedTableCreateProps, TableHistoryTable} from './types'
+import {createPgTable} from './pgTable';
 
 export async function loadVersionedTableData<RecordType>({
   pgDb,
   logTableDef,
   recordTableDef,
   sqlIdInSubQry,
-  keyField,
-  who
+  keyField
 }: {
   pgDb: IBaseProtocol<any>;
   recordTableDef: TableDefinition<RecordType>;
   keyField: keyof RecordType;
   logTableDef: TableDefinition<TableHistoryTable<RecordType>>;
   sqlIdInSubQry?: SelectQuery;
-  who?: Id;
 }): Promise<{
   data: RecordType[];
   lastHistoryEntry: TableHistoryEntry<RecordType> | null;
@@ -50,3 +57,40 @@ export async function loadVersionedTableData<RecordType>({
     lastHistoryEntry
   };
 }
+
+export async function createPgVersionedTable<RecordType>({
+  baseSqlCondition,
+  fromCommitId,
+  keyField,
+  logTableDef,
+  pgDb,
+  recordTableDef,
+  who
+}: PgVersionedTableCreateProps<RecordType>): Promise<
+  VersionedTable<RecordType>
+> {
+  const history = await PgTableVersionHistory.loadOrInitFromDb({
+    pgDb,
+    who,
+    fromCommitId,
+    historyTblDef: logTableDef
+  });
+  const pgTbl = await createPgTable({
+    keyField,
+    pgDb,
+    qryBaseCond: baseSqlCondition,
+    tblDef: recordTableDef
+  });
+  const versionedTable = await createVersionedTable({
+    dbType: pgTbl,
+    versionHistoryType: history,
+    who
+  });
+  return versionedTable;
+}
+
+export const createPgTableVersionHistory = <RecordType>(
+  props: PgTableVersionHistoryCreateProps<RecordType>
+): Promise<TableVersionHistory<RecordType>> => {
+  return PgTableVersionHistory.loadOrInitFromDb(props);
+};

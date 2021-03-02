@@ -1,6 +1,6 @@
-import {SQLExpression, TableDefinition} from 'yaso'
-import {IBaseProtocol} from 'pg-promise'
-import {Id, TableHistoryEntry} from '../../tablevc'
+import {SQLExpression, TableDefinition} from 'yaso';
+import {IBaseProtocol} from 'pg-promise';
+import {Id, TableHistoryEntry} from 'tablevc';
 
 export interface PgTablePrms<RecordType> {
   tblDef: TableDefinition<RecordType>;

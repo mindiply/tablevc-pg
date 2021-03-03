@@ -1,10 +1,34 @@
-import {KeyFilter, Table, TableTransactionBody, WritableTable} from 'tablevc'
-import {IBaseProtocol} from 'pg-promise'
-import {omit} from 'lodash'
-import {alias, and, count, createDBTbl, equals, Id, IDBTable, list, prm, SQLExpression, sqlIn, tbl, value} from 'yaso'
-import {objChanges} from './objChanges'
-import {TableFieldUpdates} from 'yaso/lib/query/types'
-import {PgTablePrms} from './types'
+import {
+  generateNewId,
+  isId,
+  KeyFilter,
+  Table,
+  TableTransactionBody,
+  WritableTable
+} from 'tablevc';
+import {IBaseProtocol} from 'pg-promise';
+import {omit} from 'lodash';
+import {
+  alias,
+  and,
+  count,
+  createDBTbl,
+  equals,
+  Id,
+  IDBTable,
+  list,
+  prm,
+  SQLExpression,
+  sqlIn,
+  tbl,
+  usePg,
+  value
+} from 'yaso';
+import {objChanges} from './objChanges';
+import {TableFieldUpdates} from 'yaso/lib/query/types';
+import {PgTablePrms} from './types';
+
+usePg();
 
 export class PgTable<RecordType>
   implements Table<RecordType>, WritableTable<RecordType> {
@@ -24,8 +48,20 @@ export class PgTable<RecordType>
     return null;
   }
 
+  public get primaryKey() {
+    return this.keyField;
+  }
+
   public getRecord = async (recordId: Id): Promise<RecordType | undefined> => {
-    const getRecordSql = tbl(this.dbTbl).selectQrySql(sTbl => ({
+    const getRecordSql = this.sqlGetRecord();
+    const record = await this.pgDb.task(db =>
+      db.oneOrNone(getRecordSql, {recordId})
+    );
+    return record || undefined;
+  };
+
+  private sqlGetRecord = (): string => {
+    const sql = tbl(this.dbTbl).selectQrySql(sTbl => ({
       where: this.qryBaseCond
         ? and([
             this.qryBaseCond,
@@ -33,10 +69,8 @@ export class PgTable<RecordType>
           ])
         : equals(sTbl.fields.get(this.keyField)!, prm('recordId'))
     }));
-    const record = await this.pgDb.task(db =>
-      db.oneOrNone(getRecordSql, {recordId})
-    );
-    return record || undefined;
+    console.log(sql);
+    return sql;
   };
 
   public getRecords = async (keys?: Id[] | KeyFilter<RecordType>) => {
@@ -101,9 +135,25 @@ export class PgTable<RecordType>
     await this.pgDb.tx(db => db.none(sql, {recordId}));
   };
 
-  public setRecord = async (recordId: Id, record: RecordType) => {
+  public setRecord = async (
+    keyId: Id | Partial<RecordType>,
+    inpRecord?: RecordType
+  ) => {
+    if (isId(keyId) && !inpRecord) {
+      throw new Error('If setting the recordId, you need a record as well');
+    }
+    const record = isId(keyId) ? inpRecord! : keyId;
     return this.pgDb.tx(async db => {
-      const existingRecord = await this.getRecord(recordId);
+      let existingRecord: null | RecordType = null;
+      const existingRecordId = isId(keyId)
+        ? keyId
+        : this.keyField in record
+        ? ((record[this.keyField] as unknown) as Id)
+        : null;
+      const newRecordId = existingRecordId || generateNewId();
+      if (existingRecordId) {
+        existingRecord = (await this.getRecord(existingRecordId)) || null;
+      }
       const fieldsToOmit: Array<keyof RecordType> = [];
       if (this.dbTbl.ccField) {
         fieldsToOmit.push(this.dbTbl.ccField.name);
@@ -128,15 +178,20 @@ export class PgTable<RecordType>
               ])
             : equals(rTbl.fields.get(this.keyField)!, prm('recordId'))
         }));
-        await db.none(sql, {...changes, recordId});
+        await db.none(sql, {...changes, recordId: newRecordId});
       } else {
+        const recordToAdd = ({
+          ...record,
+          [this.keyField]: newRecordId
+        } as unknown) as RecordType;
         // @ts-expect-error RecordType does not extend object by default
-        const toInsertRecord = omit(record, fieldsToOmit);
+        const toInsertRecord = omit(recordToAdd, fieldsToOmit);
         const sql = tbl(this.dbTbl).insertQrySql({
           fields: createPrmsMap(toInsertRecord)
         });
         await db.none(sql, toInsertRecord);
       }
+      return db.one(this.sqlGetRecord(), {recordId: newRecordId});
     });
   };
 

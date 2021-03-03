@@ -11,7 +11,6 @@ import {equals, moreOrEqual, prm, selectFrom, TableDefinition, tbl} from 'yaso';
 import {IBaseProtocol} from 'pg-promise';
 import {deEscapeFromJson, EscapedObject, escapeForJson} from './jsonEncoding';
 import {PgTableVersionHistoryCreateProps, TableHistoryTable} from './types';
-import {SelectQuery} from 'yaso/lib/query/types';
 
 export class PgTableVersionHistory<RecordType>
   extends MemoryTableVersionHistory<RecordType>
@@ -164,10 +163,12 @@ async function loadHistoryEntries<RecordType>(
   } else {
     needsReverse = true;
     sql = selectFrom(
-      tbl(historyTblDef).selectQry(hTbl => ({
-        orderByFields: [{field: hTbl.cols._id, isDesc: true}]
-      })) as SelectQuery<TableHistoryTable<RecordType>>,
-      rs => {rs.maxRows(10)}
+      selectFrom(tbl(historyTblDef), (qry, hTbl) => {
+        qry.orderBy({field: hTbl.cols._id, isDesc: true});
+      }),
+      oQry => {
+        oQry.maxRows(10);
+      }
     ).toSql();
   }
   const historyEntries = await pgDb.task<

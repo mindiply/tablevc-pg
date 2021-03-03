@@ -1,8 +1,6 @@
 import {IBaseProtocol} from 'pg-promise';
 import {equals, max, sqlIn, TableDefinition, tbl} from 'yaso';
-import {
-  PgTableVersionHistory
-} from './pgTableVersionHistory';
+import {PgTableVersionHistory} from './pgTableVersionHistory';
 import {SelectQuery} from 'yaso/lib/query/types';
 import {
   createVersionedTable,
@@ -10,7 +8,11 @@ import {
   TableVersionHistory,
   VersionedTable
 } from 'tablevc';
-import {PgTableVersionHistoryCreateProps, PgVersionedTableCreateProps, TableHistoryTable} from './types'
+import {
+  PgTableVersionHistoryCreateProps,
+  PgVersionedTableCreateProps,
+  TableHistoryTable
+} from './types';
 import {createPgTable} from './pgTable';
 
 export async function loadVersionedTableData<RecordType>({
@@ -82,6 +84,7 @@ export async function createPgVersionedTable<RecordType>({
     tblDef: recordTableDef
   });
   const versionedTable = await createVersionedTable({
+    primaryKey: keyField,
     dbType: pgTbl,
     versionHistoryType: history,
     who

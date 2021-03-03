@@ -1,5 +1,4 @@
 import {
-  generateNewId,
   isId,
   KeyFilter,
   Table,
@@ -150,7 +149,6 @@ export class PgTable<RecordType>
         : this.keyField in record
         ? ((record[this.keyField] as unknown) as Id)
         : null;
-      const newRecordId = existingRecordId || generateNewId();
       if (existingRecordId) {
         existingRecord = (await this.getRecord(existingRecordId)) || null;
       }
@@ -178,20 +176,23 @@ export class PgTable<RecordType>
               ])
             : equals(rTbl.fields.get(this.keyField)!, prm('recordId'))
         }));
-        await db.none(sql, {...changes, recordId: newRecordId});
+        await db.none(sql, {...changes, recordId: existingRecordId});
+        return db.one(this.sqlGetRecord(), {
+          recordId: existingRecordId
+        });
       } else {
-        const recordToAdd = ({
-          ...record,
-          [this.keyField]: newRecordId
-        } as unknown) as RecordType;
+        const recordToAdd = (record as unknown) as RecordType;
         // @ts-expect-error RecordType does not extend object by default
         const toInsertRecord = omit(recordToAdd, fieldsToOmit);
         const sql = tbl(this.dbTbl).insertQrySql({
+          returnFields: true,
           fields: createPrmsMap(toInsertRecord)
         });
-        await db.none(sql, toInsertRecord);
+        const addedRecord: RecordType = await db.one(sql, toInsertRecord);
+        return db.one(this.sqlGetRecord(), {
+          recordId: addedRecord[this.primaryKey]
+        });
       }
-      return db.one(this.sqlGetRecord(), {recordId: newRecordId});
     });
   };
 

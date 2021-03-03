@@ -4,7 +4,9 @@ import {
   HistoryOperationType,
   Id,
   MemoryTableVersionHistory,
+  TableHistoryDelta,
   TableHistoryEntry,
+  TableMergeDelta,
   TableVersionHistory
 } from 'tablevc';
 import {equals, moreOrEqual, prm, selectFrom, TableDefinition, tbl} from 'yaso';
@@ -13,11 +15,11 @@ import {deEscapeFromJson, EscapedObject, escapeForJson} from './jsonEncoding';
 import {PgTableVersionHistoryCreateProps, TableHistoryTable} from './types';
 
 export class PgTableVersionHistory<RecordType>
-  extends MemoryTableVersionHistory<RecordType>
   implements TableVersionHistory<RecordType> {
   private historyTblDef: TableDefinition<TableHistoryTable<RecordType>>;
   private pgDb: IBaseProtocol<any>;
   private who?: Id;
+  private memoryHistory: MemoryTableVersionHistory<RecordType>;
 
   static async loadOrInitFromDb<RecordType>({
     pgDb,
@@ -86,18 +88,52 @@ export class PgTableVersionHistory<RecordType>
     historyEntries: TableHistoryEntry<RecordType>[];
     who?: Id;
   }) {
-    super(historyEntries);
+    this.memoryHistory = new MemoryTableVersionHistory(historyEntries);
     this.historyTblDef = historyTblDef;
     this.pgDb = pgDb;
     this.who = who;
   }
+
+  public get length() {
+    return this.memoryHistory.length;
+  }
+
+  public entries = (afterCommitId: string, toCommitId?: string) =>
+    this.memoryHistory.entries(afterCommitId, toCommitId);
+
+  public clear = () => this.memoryHistory.clear();
+
+  public indexOf = (commitId: string) => this.memoryHistory.indexOf(commitId);
+
+  public getByIndex = (index: number) => this.memoryHistory.getByIndex(index);
+
+  public nextCommitIdOf = (commitId: string) =>
+    this.memoryHistory.nextCommitIdOf(commitId);
+
+  public previousCommitIdOf = (commitId: string) =>
+    this.memoryHistory.previousCommitIdOf(commitId);
+
+  public getHistoryDelta = (fromCommitId: string, toCommitId?: string) =>
+    this.memoryHistory.getHistoryDelta(fromCommitId, toCommitId);
+
+  public branch = (untilCommitId?: string) =>
+    this.memoryHistory.branch(untilCommitId);
+
+  public mergeInRemoteDelta = (
+    historyDelta: TableHistoryDelta<RecordType> | TableMergeDelta<RecordType>
+  ) => this.memoryHistory.mergeInRemoteDelta(historyDelta);
+
+  public rebaseWithMergeDelta = (mergeDelta: TableMergeDelta<RecordType>) =>
+    this.memoryHistory.rebaseWithMergeDelta(mergeDelta);
+
+  public lastCommitId = () => this.memoryHistory.lastCommitId();
 
   public push = async (
     entry: TableHistoryEntry<RecordType>
   ): Promise<number> => {
     return this.pgDb.tx(async db => {
       await insertLogRecord(db, this.historyTblDef, entry.commitId, entry);
-      await super.push(entry);
+      await this.memoryHistory.push(entry);
       return this.length;
     });
   };
@@ -111,8 +147,8 @@ export class PgTableVersionHistory<RecordType>
         lastCommitId
       );
       for (const entry of addedEntries) {
-        if (this.indexOf(entry.commitId) === -1) {
-          await super.push(entry);
+        if (this.memoryHistory.indexOf(entry.commitId) === -1) {
+          await this.memoryHistory.push(entry);
         }
       }
     }

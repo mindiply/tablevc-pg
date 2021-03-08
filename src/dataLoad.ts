@@ -84,6 +84,7 @@ export async function createPgVersionedTable<RecordType>({
     tblDef: recordTableDef
   });
   const versionedTable = await createVersionedTable({
+    tableName: recordTableDef.dbName,
     primaryKey: keyField,
     dbType: pgTbl,
     versionHistoryType: history,

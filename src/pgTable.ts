@@ -51,6 +51,10 @@ export class PgTable<RecordType>
     return this.keyField;
   }
 
+  public get tableName() {
+    return this.dbTbl.dbName;
+  }
+
   public getRecord = async (recordId: Id): Promise<RecordType | undefined> => {
     const getRecordSql = this.sqlGetRecord();
     const record = await this.pgDb.task(db =>

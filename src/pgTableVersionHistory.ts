@@ -181,19 +181,20 @@ async function loadHistoryEntries<RecordType>(
 ): Promise<TableHistoryEntry<RecordType>[]> {
   let sql: string;
   let needsReverse = false;
+  const prms: {fromTalId?: Id} = {};
   if (fromCommitId) {
-    let minLogTblId: Id | null = null;
     const minIdRec = await pgDb.task<{_id: Id}>(db =>
       db.one(
-        tbl(historyTblDef).selectQry(hTbl2 => ({
+        tbl(historyTblDef).selectQrySql(hTbl2 => ({
           fields: [hTbl2.cols._id],
-          where: equals(hTbl2.cols.commitId, prm('commitId'))
-        }))
+          where: equals(hTbl2.cols.commitId, prm('fromCommitId'))
+        })),
+        {fromCommitId}
       )
     );
-    minLogTblId = minIdRec._id;
+    prms.fromTalId = minIdRec._id;
     sql = tbl(historyTblDef).selectQrySql(hTbl => ({
-      where: moreOrEqual(hTbl.cols._id, minLogTblId),
+      where: moreOrEqual(hTbl.cols._id, prm('fromTalId')),
       orderByFields: [{field: hTbl.cols._id}]
     }));
   } else {
@@ -207,9 +208,10 @@ async function loadHistoryEntries<RecordType>(
       }
     ).toSql();
   }
+  console.log(sql);
   const historyEntries = await pgDb.task<
     EscapedObject<TableHistoryEntry<RecordType>>[]
-  >(db => db.any(sql, fromCommitId ? {fromCommitId} : {}));
+  >(db => db.any(sql, prms));
   const entries = historyEntries.map(entry =>
     deEscapeFromJson(entry)
   ) as TableHistoryEntry<RecordType>[];

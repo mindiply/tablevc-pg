@@ -39,7 +39,7 @@ export async function loadVersionedTableData<RecordType>({
   const logEntrySql = tbl(logTableDef).selectQrySql(lTbl => ({
     where: equals(
       lTbl.cols._id,
-      tbl(logTableDef).selectQrySql(lTbl2 => ({
+      tbl(logTableDef).selectQry(lTbl2 => ({
         fields: [max(lTbl2.cols._id)]
       }))
     )

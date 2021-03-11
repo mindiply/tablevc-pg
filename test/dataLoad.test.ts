@@ -64,5 +64,6 @@ describe('Loading data from the db', () => {
     expect(logRecord!.__typename).toBe(
       HistoryOperationType.TABLE_RECORD_CHANGE
     );
+    expect(logRecord!.when instanceof Date).toBe(true);
   });
 });

@@ -78,6 +78,8 @@ export function escapeForJson<T>(val: T): EscapedObject<T> {
 export function deEscapeFromJson<T>(val: T): UnescapedObject<T> {
   if (val && val instanceof Date) {
     return val as UnescapedObject<T>;
+  } else if (val && isEscapedDate(val)) {
+    return new Date(val.isoString) as UnescapedObject<T>;
   } else if (val && val instanceof Set) {
     return new Set(
       Array.from(val.values()).map(val => deEscapeFromJson(val))
@@ -113,6 +115,15 @@ export function deEscapeFromJson<T>(val: T): UnescapedObject<T> {
     }
   }
   return val as UnescapedObject<T>;
+}
+
+function isEscapedDate(val: any): val is EscapedDate {
+  return Boolean(
+    val &&
+      typeof val === 'object' &&
+      val.__typename === 'EscapedDate' &&
+      typeof val.isoString === 'string'
+  );
 }
 
 function isEscapedSet(val: any): val is EscapedSet {

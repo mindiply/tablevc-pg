@@ -14,6 +14,7 @@ import {
   TableHistoryTable
 } from './types';
 import {createPgTable} from './pgTable';
+import {deEscapeFromJson} from './jsonEncoding';
 
 export async function loadVersionedTableData<RecordType>({
   pgDb,
@@ -47,12 +48,19 @@ export async function loadVersionedTableData<RecordType>({
 
   const [data, lastHistoryEntry] = await pgDb.task<
     [RecordType[], TableHistoryEntry<RecordType> | null]
-  >(async db => {
-    const historyEntry: TableHistoryEntry<RecordType> | null = await db.oneOrNone(
+  >(async (db: IBaseProtocol<any>) => {
+    const historyEntry = await db.oneOrNone<TableHistoryTable<RecordType>>(
       logEntrySql
     );
     const records = await db.any(recordsSql);
-    return [records, historyEntry];
+    return [
+      records,
+      historyEntry
+        ? (deEscapeFromJson(
+            historyEntry.historyEntry
+          ) as TableHistoryEntry<RecordType>)
+        : null
+    ];
   });
   return {
     data,

@@ -1,15 +1,14 @@
 import {clearTestDb, initTestDb} from './db/init';
 import {getDb} from './db/dbProvider';
-import {createPgTable} from '../src';
+import {createPgVersionedTable} from '../src';
 import {Tst, tstLogTblDef, tstTblDef} from './db/tstTableDef';
 import {
-  createInMemoryVTChannel,
   createVersionedTable,
+  createInMemoryVTChannel,
   Id,
   pull,
   push
 } from 'tablevc';
-import {createPgTableVersionHistory} from '../lib';
 
 beforeAll(async () => {
   return initTestDb();
@@ -36,19 +35,12 @@ describe('Basic table API', () => {
 
   test('Inserting the first record', async () => {
     const pgDb = await getDb();
-    const vt = await createVersionedTable<Tst>({
-      tableName: 'tst',
-      primaryKey: '_id',
-      dbType: createPgTable({
-        tblDef: tstTblDef,
-        pgDb: pgDb!,
-        keyField: '_id'
-      }),
-      versionHistoryType: await createPgTableVersionHistory({
-        pgDb: pgDb!,
-        historyTblDef: tstLogTblDef,
-        who: 'TESTID'
-      })
+    const vt = await createPgVersionedTable<Tst>({
+      recordTableDef: tstTblDef,
+      keyField: '_id',
+      logTableDef: tstLogTblDef,
+      pgDb,
+      who: 'TESTID'
     });
     const r1 = tstRecord('TEST1');
     await vt.addRecord(r1);
@@ -58,19 +50,12 @@ describe('Basic table API', () => {
 
   test('Inserting and updating the first record', async () => {
     const pgDb = await getDb();
-    const vt = await createVersionedTable<Tst>({
-      tableName: 'tst',
-      primaryKey: '_id',
-      dbType: createPgTable({
-        tblDef: tstTblDef,
-        pgDb: pgDb!,
-        keyField: '_id'
-      }),
-      versionHistoryType: await createPgTableVersionHistory({
-        pgDb: pgDb!,
-        historyTblDef: tstLogTblDef,
-        who: 'TESTID'
-      })
+    const vt = await createPgVersionedTable<Tst>({
+      recordTableDef: tstTblDef,
+      keyField: '_id',
+      logTableDef: tstLogTblDef,
+      pgDb,
+      who: 'TESTID'
     });
     const r1 = tstRecord('TEST1');
     await vt.addRecord(r1);
@@ -83,19 +68,12 @@ describe('Basic table API', () => {
 
   test('Inserting and deleting a record', async () => {
     const pgDb = await getDb();
-    const vt = await createVersionedTable<Tst>({
-      tableName: 'tst',
-      primaryKey: '_id',
-      dbType: createPgTable({
-        tblDef: tstTblDef,
-        pgDb: pgDb!,
-        keyField: '_id'
-      }),
-      versionHistoryType: await createPgTableVersionHistory({
-        pgDb: pgDb!,
-        historyTblDef: tstLogTblDef,
-        who: 'TESTID'
-      })
+    const vt = await createPgVersionedTable<Tst>({
+      recordTableDef: tstTblDef,
+      keyField: '_id',
+      logTableDef: tstLogTblDef,
+      pgDb,
+      who: 'TESTID'
     });
     const r1 = tstRecord('TEST1');
     await vt.addRecord(r1);
@@ -117,19 +95,12 @@ describe('Synchronizing with memory clients', () => {
   describe('Clone from server', () => {
     test('Empty history', async () => {
       const pgDb = await getDb();
-      const serverHistory = await createVersionedTable<Tst>({
-        primaryKey: '_id',
-        tableName: 'tst',
-        dbType: createPgTable({
-          tblDef: tstTblDef,
-          pgDb: pgDb!,
-          keyField: '_id'
-        }),
-        versionHistoryType: await createPgTableVersionHistory({
-          pgDb: pgDb!,
-          historyTblDef: tstLogTblDef,
-          who: 'TESTID'
-        })
+      const serverHistory = await createPgVersionedTable<Tst>({
+        recordTableDef: tstTblDef,
+        keyField: '_id',
+        logTableDef: tstLogTblDef,
+        pgDb,
+        who: 'TESTID'
       });
       const channel = createInMemoryVTChannel(serverHistory);
       const {lastCommitId, rows} = await channel.cloneTable(
@@ -141,19 +112,12 @@ describe('Synchronizing with memory clients', () => {
 
     test('A few records', async () => {
       const pgDb = await getDb();
-      const serverHistory = await createVersionedTable<Tst>({
-        primaryKey: '_id',
-        tableName: 'tst',
-        dbType: createPgTable({
-          tblDef: tstTblDef,
-          pgDb: pgDb!,
-          keyField: '_id'
-        }),
-        versionHistoryType: await createPgTableVersionHistory({
-          pgDb: pgDb!,
-          historyTblDef: tstLogTblDef,
-          who: 'TESTID'
-        })
+      const serverHistory = await createPgVersionedTable<Tst>({
+        recordTableDef: tstTblDef,
+        keyField: '_id',
+        logTableDef: tstLogTblDef,
+        pgDb,
+        who: 'TESTID'
       });
       const testRecord = tstRecord('TEST1');
       await serverHistory.addRecord('TEST1', testRecord);
@@ -178,19 +142,12 @@ describe('Synchronizing with memory clients', () => {
       const pgDb = await getDb();
       const testRecord = tstRecord('TEST1');
       const testRecord2 = tstRecord('TEST2');
-      const server = await createVersionedTable<Tst>({
-        primaryKey: '_id',
-        tableName: 'tst',
-        dbType: createPgTable({
-          tblDef: tstTblDef,
-          pgDb: pgDb!,
-          keyField: '_id'
-        }),
-        versionHistoryType: await createPgTableVersionHistory({
-          pgDb: pgDb!,
-          historyTblDef: tstLogTblDef,
-          who: 'TESTID'
-        })
+      const server = await createPgVersionedTable<Tst>({
+        recordTableDef: tstTblDef,
+        keyField: '_id',
+        logTableDef: tstLogTblDef,
+        pgDb,
+        who: 'TESTID'
       });
       const channel = createInMemoryVTChannel(server);
       const {lastCommitId, rows} = await channel.cloneTable<Tst>('tst');
@@ -221,19 +178,12 @@ describe('Synchronizing with memory clients', () => {
       const pgDb = await getDb();
       const testRecord = tstRecord('TEST1');
       const testRecord2 = tstRecord('TEST2');
-      const server = await createVersionedTable<Tst>({
-        primaryKey: '_id',
-        tableName: 'tst',
-        dbType: createPgTable({
-          tblDef: tstTblDef,
-          pgDb: pgDb!,
-          keyField: '_id'
-        }),
-        versionHistoryType: await createPgTableVersionHistory({
-          pgDb: pgDb!,
-          historyTblDef: tstLogTblDef,
-          who: 'TESTID'
-        })
+      const server = await createPgVersionedTable<Tst>({
+        recordTableDef: tstTblDef,
+        keyField: '_id',
+        logTableDef: tstLogTblDef,
+        pgDb,
+        who: 'TESTID'
       });
       const channel = createInMemoryVTChannel(server);
       const {lastCommitId, rows} = await channel.cloneTable<Tst>('tst');
@@ -264,19 +214,12 @@ describe('Synchronizing with memory clients', () => {
       const pgDb = await getDb();
       const testRecord = tstRecord('TEST1');
       const testRecord2 = tstRecord('TEST2');
-      const server = await createVersionedTable<Tst>({
-        primaryKey: '_id',
-        tableName: 'tst',
-        dbType: createPgTable({
-          tblDef: tstTblDef,
-          pgDb: pgDb!,
-          keyField: '_id'
-        }),
-        versionHistoryType: await createPgTableVersionHistory({
-          pgDb: pgDb!,
-          historyTblDef: tstLogTblDef,
-          who: 'TESTID'
-        })
+      const server = await createPgVersionedTable<Tst>({
+        recordTableDef: tstTblDef,
+        keyField: '_id',
+        logTableDef: tstLogTblDef,
+        pgDb,
+        who: 'TESTID'
       });
       await server.addRecord(testRecord._id, testRecord);
       const channel = createInMemoryVTChannel(server);
@@ -315,19 +258,12 @@ describe('Synchronizing with memory clients', () => {
   describe('Pull', () => {
     test('Null no changes pull', async () => {
       const pgDb = await getDb();
-      const server = await createVersionedTable<Tst>({
-        primaryKey: '_id',
-        tableName: 'tst',
-        dbType: createPgTable({
-          tblDef: tstTblDef,
-          pgDb: pgDb,
-          keyField: '_id'
-        }),
-        versionHistoryType: await createPgTableVersionHistory({
-          pgDb: pgDb,
-          historyTblDef: tstLogTblDef,
-          who: 'TESTID'
-        })
+      const server = await createPgVersionedTable<Tst>({
+        recordTableDef: tstTblDef,
+        keyField: '_id',
+        logTableDef: tstLogTblDef,
+        pgDb,
+        who: 'TESTID'
       });
       const channel = createInMemoryVTChannel(server);
       const {lastCommitId, rows} = await channel.cloneTable<Tst>('tst');
@@ -346,19 +282,12 @@ describe('Synchronizing with memory clients', () => {
 
     test('Some changes to pull', async () => {
       const pgDb = await getDb();
-      const server = await createVersionedTable<Tst>({
-        primaryKey: '_id',
-        tableName: 'tst',
-        dbType: createPgTable({
-          tblDef: tstTblDef,
-          pgDb: pgDb,
-          keyField: '_id'
-        }),
-        versionHistoryType: await createPgTableVersionHistory({
-          pgDb: pgDb,
-          historyTblDef: tstLogTblDef,
-          who: 'TESTID'
-        })
+      const server = await createPgVersionedTable<Tst>({
+        recordTableDef: tstTblDef,
+        keyField: '_id',
+        logTableDef: tstLogTblDef,
+        pgDb,
+        who: 'TESTID'
       });
       const channel = createInMemoryVTChannel(server);
       const {lastCommitId, rows} = await channel.cloneTable<Tst>('tst');
@@ -383,19 +312,12 @@ describe('Synchronizing with memory clients', () => {
 
     test('Changes from other client to pull', async () => {
       const pgDb = await getDb();
-      const server = await createVersionedTable<Tst>({
-        primaryKey: '_id',
-        tableName: 'tst',
-        dbType: createPgTable({
-          tblDef: tstTblDef,
-          pgDb: pgDb,
-          keyField: '_id'
-        }),
-        versionHistoryType: await createPgTableVersionHistory({
-          pgDb: pgDb,
-          historyTblDef: tstLogTblDef,
-          who: 'TESTID'
-        })
+      const server = await createPgVersionedTable<Tst>({
+        recordTableDef: tstTblDef,
+        keyField: '_id',
+        logTableDef: tstLogTblDef,
+        pgDb,
+        who: 'TESTID'
       });
       const channel = createInMemoryVTChannel(server);
       const {lastCommitId, rows} = await channel.cloneTable<Tst>('tst');
@@ -431,19 +353,12 @@ describe('Synchronizing with memory clients', () => {
 
     test('Cancelled merge pull', async () => {
       const pgDb = await getDb();
-      const server = await createVersionedTable<Tst>({
-        primaryKey: '_id',
-        tableName: 'tst',
-        dbType: createPgTable({
-          tblDef: tstTblDef,
-          pgDb: pgDb,
-          keyField: '_id'
-        }),
-        versionHistoryType: await createPgTableVersionHistory({
-          pgDb: pgDb,
-          historyTblDef: tstLogTblDef,
-          who: 'TESTID'
-        })
+      const server = await createPgVersionedTable<Tst>({
+        recordTableDef: tstTblDef,
+        keyField: '_id',
+        logTableDef: tstLogTblDef,
+        pgDb,
+        who: 'TESTID'
       });
       const channel = createInMemoryVTChannel(server);
       const {lastCommitId, rows} = await channel.cloneTable<Tst>('tst');

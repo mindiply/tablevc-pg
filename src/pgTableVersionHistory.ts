@@ -209,10 +209,10 @@ async function loadHistoryEntries<RecordType>(
     ).toSql();
   }
   const historyEntries = await pgDb.task<
-    EscapedObject<TableHistoryEntry<RecordType>>[]
+    EscapedObject<TableHistoryTable<RecordType>>[]
   >(db => db.any(sql, prms));
-  const entries = historyEntries.map(entry =>
-    deEscapeFromJson(entry)
+  const entries = historyEntries.map(
+    entry => deEscapeFromJson(entry).historyEntry
   ) as TableHistoryEntry<RecordType>[];
   return needsReverse ? entries.reverse() : entries;
 }

@@ -72,7 +72,6 @@ export class PgTable<RecordType>
           ])
         : equals(sTbl.fields.get(this.keyField)!, prm('recordId'))
     }));
-    console.log(sql);
     return sql;
   };
 
@@ -122,7 +121,18 @@ export class PgTable<RecordType>
     const res = await this.pgDb.task<{nRecords: number}>(db =>
       db.oneOrNone(sql)
     );
-    return res ? res.nRecords : 0;
+    if (res) {
+      if (typeof res.nRecords === 'string') {
+        let nRecords = 0;
+        try {
+          nRecords = parseInt(res.nRecords);
+        } catch (err) {
+          // do nothing
+        }
+        return nRecords;
+      }
+    }
+    return 0;
   };
 
   public tx = <ReturnType = any>(

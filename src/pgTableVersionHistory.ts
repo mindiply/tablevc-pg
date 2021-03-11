@@ -208,7 +208,6 @@ async function loadHistoryEntries<RecordType>(
       }
     ).toSql();
   }
-  console.log(sql);
   const historyEntries = await pgDb.task<
     EscapedObject<TableHistoryEntry<RecordType>>[]
   >(db => db.any(sql, prms));

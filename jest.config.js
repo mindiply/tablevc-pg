@@ -1,6 +1,6 @@
 module.exports = {
   // collectCoverage: true,
-  moduleFileExtensions: ['ts', 'tsx', 'js', 'json', 'jsx', 'node'],
+  moduleFileExtensions: ['ts', 'tsx', 'js'],
   roots: ['<rootDir>/src/', '<rootDir>/test/'],
   // testEnvironment: 'node',
   transform: {

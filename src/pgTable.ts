@@ -23,7 +23,7 @@ import {
   usePg,
   value
 } from 'yaso';
-import {objChanges} from './objChanges';
+import {objChanges} from './objchanges';
 import {TableFieldUpdates} from 'yaso/lib/query/types';
 import {PgTablePrms} from './types';
 

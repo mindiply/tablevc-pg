@@ -1,4 +1,4 @@
-import { clearTestDb, initTestDb } from "./db/init";
+import {clearTestDb, initTestDb} from './db/init';
 import {createPgTable} from '../src';
 import {tstTblDef} from './db/tstTableDef';
 import {getDb} from './db/dbProvider';
@@ -35,6 +35,29 @@ describe('Basic table API', () => {
     });
     const addedRecord = await pgTbl.getRecord('TEST1');
     expect(addedRecord).toEqual(testRecord1);
+  });
+
+  test('Inserting the first record without providing an id', async () => {
+    const pgDb = await getDb();
+    const pgTbl = createPgTable({
+      tblDef: tstTblDef,
+      pgDb: pgDb!,
+      keyField: '_id'
+    });
+
+    const testRecord1 = {
+      name: 'Test n1',
+      amount: 10,
+      nullable: null,
+      when: new Date(2022, 0, 1)
+    };
+    const newId = (
+      await pgTbl.tx(async tst => {
+        return tst.setRecord(testRecord1);
+      })
+    )._id;
+    const addedRecord = await pgTbl.getRecord(newId);
+    expect(addedRecord).toEqual({...testRecord1, _id: newId});
   });
 
   test('Inserting and updating a record', async () => {

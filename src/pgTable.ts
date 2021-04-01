@@ -1,4 +1,5 @@
 import {
+  generateNewId,
   isId,
   KeyFilter,
   Table,
@@ -33,14 +34,22 @@ export class PgTable<RecordType>
   implements Table<RecordType>, WritableTable<RecordType> {
   private dbTbl: IDBTable<RecordType>;
   private pgDb: IBaseProtocol<any>;
-  private keyField: keyof RecordType;
-  private qryBaseCond?: SQLExpression;
+  private readonly keyField: keyof RecordType;
+  private readonly qryBaseCond?: SQLExpression;
+  private readonly generateMissingId: boolean;
 
-  constructor({tblDef, keyField, pgDb, qryBaseCond}: PgTablePrms<RecordType>) {
+  constructor({
+    tblDef,
+    keyField,
+    pgDb,
+    qryBaseCond,
+    generateMissingId = true
+  }: PgTablePrms<RecordType>) {
     this.dbTbl = createDBTbl(tblDef);
     this.pgDb = pgDb;
     this.keyField = keyField;
     this.qryBaseCond = qryBaseCond;
+    this.generateMissingId = generateMissingId;
   }
 
   public get syncTbl() {
@@ -195,9 +204,13 @@ export class PgTable<RecordType>
           recordId: existingRecordId
         });
       } else {
-        const recordToAdd = (record as unknown) as RecordType;
+        let recordToAdd = (record as unknown) as RecordType;
+        if (!(this.primaryKey in recordToAdd) && this.generateMissingId) {
+          recordToAdd = {...recordToAdd, [this.primaryKey]: generateNewId()};
+        }
         // @ts-expect-error RecordType does not extend object by default
         const toInsertRecord = omit(recordToAdd, fieldsToOmit);
+
         const sql = tbl(this.dbTbl).insertQrySql({
           returnFields: true,
           fields: createPrmsMap(toInsertRecord)

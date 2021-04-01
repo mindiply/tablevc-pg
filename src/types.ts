@@ -7,6 +7,7 @@ export interface PgTablePrms<RecordType> {
   pgDb: IBaseProtocol<any>;
   keyField: keyof RecordType;
   qryBaseCond?: SQLExpression;
+  generateMissingId?: boolean;
 }
 
 export interface TableHistoryTable<RecordType> {

@@ -1,10 +1,15 @@
 import {
   generateNewId,
+  Id,
+  isBinaryFilter,
   isId,
+  isTableFilterExpression,
   KeyFilter,
   Table,
   TableTransactionBody,
-  WritableTable
+  WritableTable,
+  FilterExpressionType,
+  TableFilterExpression
 } from 'tablevc';
 import {IBaseProtocol} from 'pg-promise';
 import {omit} from 'lodash';
@@ -13,20 +18,32 @@ import {
   and,
   count,
   createDBTbl,
+  diffs,
   equals,
-  Id,
   IDBTable,
+  lessOrEqual,
+  lessThan,
   list,
+  moreOrEqual,
+  moreThan,
+  not,
   prm,
+  ReferencedTable,
   SQLExpression,
   sqlIn,
   tbl,
   usePg,
-  value
+  value,
+  TableFieldUpdates,
+  functionCall,
+  or
 } from 'yaso';
 import {objChanges} from './objchanges';
-import {TableFieldUpdates} from 'yaso/lib/query/types';
 import {PgTablePrms} from './types';
+import type {
+  BaseFilterExpression,
+  EmptyFilterExpression
+} from 'tablevc/src/tableFiltersTypes';
 
 usePg();
 
@@ -84,11 +101,19 @@ export class PgTable<RecordType>
     return sql;
   };
 
-  public getRecords = async (keys?: Id[] | KeyFilter<RecordType>) => {
-    let sql: string;
+  public getRecords = async <
+    Ext extends BaseFilterExpression = EmptyFilterExpression
+  >(
+    keys?: Id[] | KeyFilter<RecordType> | TableFilterExpression<RecordType, Ext>
+  ) => {
     if (keys && Array.isArray(keys)) {
-      sql = tbl(this.dbTbl).selectQrySql(sTbl => ({
+      const sql = tbl(this.dbTbl).selectQrySql(sTbl => ({
         where: sqlIn(sTbl.fields.get(this.keyField)!, list(keys))
+      }));
+      return this.pgDb.task<RecordType[]>(db => db.any(sql));
+    } else if (keys && isTableFilterExpression(keys)) {
+      const sql = tbl(this.dbTbl).selectQrySql(sTbl => ({
+        where: tableFilterToSqlWhere(sTbl, keys)
       }));
       return this.pgDb.task<RecordType[]>(db => db.any(sql));
     } else {
@@ -99,11 +124,29 @@ export class PgTable<RecordType>
     }
   };
 
-  public allKeys = async (filter?: KeyFilter<RecordType>): Promise<Id[]> => {
+  public allKeys = async <
+    Ext extends BaseFilterExpression = EmptyFilterExpression
+  >(
+    filter?: KeyFilter<RecordType> | TableFilterExpression<RecordType, Ext>
+  ): Promise<Id[]> => {
+    if (filter && isTableFilterExpression(filter)) {
+      const sql = tbl(this.dbTbl).selectQrySql(sTbl => ({
+        fields: [sTbl.fields.get(this.keyField)!],
+        where: tableFilterToSqlWhere(sTbl, filter)
+      }));
+      const keyRecords = await this.pgDb.task<RecordType[]>(db => db.any(sql));
+      return keyRecords.map(
+        keyRecord => (keyRecord[this.primaryKey] as unknown) as Id
+      );
+    }
     const keyRecords = await this.allRecords(true);
-    return (filter ? keyRecords.filter(filter) : keyRecords).map(
-      keyRecord => (keyRecord[this.keyField] as unknown) as Id
-    );
+    if (filter && isTableFilterExpression(filter)) {
+      return [];
+    }
+    return (filter
+      ? keyRecords.filter(filter as KeyFilter<RecordType>)
+      : keyRecords
+    ).map(keyRecord => (keyRecord[this.keyField] as unknown) as Id);
   };
 
   public hasRecord = async (recordId: Id) => {
@@ -251,3 +294,57 @@ export const createPgTable = <RecordType>(
 ): Table<RecordType> => {
   return new PgTable(prms);
 };
+
+function tableFilterToSqlWhere<RecordType>(
+  tableRef: ReferencedTable<RecordType>,
+  tableFilter: TableFilterExpression<RecordType>
+): SQLExpression {
+  if (
+    tableFilter.__typename === FilterExpressionType.or ||
+    tableFilter.__typename === FilterExpressionType.and
+  ) {
+    const {expressions} = tableFilter;
+    const filters = expressions.map(expression =>
+      tableFilterToSqlWhere(tableRef, expression)
+    );
+    return tableFilter.__typename === FilterExpressionType.and
+      ? and(filters)
+      : or(filters);
+  } else if (tableFilter.__typename === FilterExpressionType.fieldReference) {
+    return tableRef.fields.get(tableFilter.fieldReference)!;
+  } else if (isBinaryFilter(tableFilter)) {
+    const {left, right} = tableFilter;
+    const operator =
+      tableFilter.__typename === FilterExpressionType.equals
+        ? equals
+        : tableFilter.__typename === FilterExpressionType.lessThan
+        ? lessThan
+        : tableFilter.__typename === FilterExpressionType.notEquals
+        ? diffs
+        : tableFilter.__typename === FilterExpressionType.lessEquals
+        ? lessOrEqual
+        : tableFilter.__typename === FilterExpressionType.moreThan
+        ? moreThan
+        : tableFilter.__typename === FilterExpressionType.moreEquals
+        ? moreOrEqual
+        : equals;
+    return operator(
+      tableFilterToSqlWhere(tableRef, left),
+      tableFilterToSqlWhere(tableRef, right)
+    );
+  } else if (tableFilter.__typename === FilterExpressionType.not) {
+    return not(tableFilterToSqlWhere(tableRef, tableFilter.expression));
+  } else if (tableFilter.__typename === FilterExpressionType.scalar) {
+    return value(tableFilter.value);
+  } else if (tableFilter.__typename === FilterExpressionType.quotedString) {
+    return value(tableFilter.text);
+  } else if (tableFilter.__typename === FilterExpressionType.functionCall) {
+    return functionCall(
+      tableFilter.functionName,
+      tableFilter.parameters.map(prmFilter =>
+        tableFilterToSqlWhere(tableRef, prmFilter)
+      )
+    );
+  }
+  throw new Error('Unrecognized filter');
+}

@@ -21,7 +21,12 @@ export const objChanges = <T>(
   compareFn: CompareValuesFn<T[keyof T]> = defaultCompare
 ): Partial<T> => {
   const changes: Partial<T> = {};
-  if (typeof baseEl === 'object' && typeof laterEl === 'object') {
+  if (
+    baseEl &&
+    laterEl &&
+    typeof baseEl === 'object' &&
+    typeof laterEl === 'object'
+  ) {
     for (const f of Object.keys(baseEl)) {
       const fieldName = f as keyof T;
       if (!compareFn(baseEl[fieldName], laterEl[fieldName])) {

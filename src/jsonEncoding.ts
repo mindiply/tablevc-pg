@@ -47,7 +47,7 @@ export function escapeForJson<T>(val: T): EscapedObject<T> {
       __typename: 'EscapedDate',
       isoString: val.toISOString()
     };
-    return (escapedDate as unknown) as EscapedObject<T>;
+    return escapedDate as unknown as EscapedObject<T>;
   } else if (val && val instanceof Set) {
     return {
       __typename: 'EscapedSet',
@@ -111,7 +111,7 @@ export function deEscapeFromJson<T>(val: T): UnescapedObject<T> {
         // @ts-expect-error unable to cast properly
         unescapedVal[key] = deEscapeFromJson(unescapedVal[key]);
       }
-      return (unescapedVal as unknown) as UnescapedObject<T>;
+      return unescapedVal as unknown as UnescapedObject<T>;
     }
   }
   return val as UnescapedObject<T>;

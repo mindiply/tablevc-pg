@@ -15,7 +15,8 @@ import {deEscapeFromJson, EscapedObject, escapeForJson} from './jsonEncoding';
 import {PgTableVersionHistoryCreateProps, TableHistoryTable} from './types';
 
 export class PgTableVersionHistory<RecordType>
-  implements TableVersionHistory<RecordType> {
+  implements TableVersionHistory<RecordType>
+{
   private historyTblDef: TableDefinition<TableHistoryTable<RecordType>>;
   private pgDb: IBaseProtocol<any>;
   private who?: Id;

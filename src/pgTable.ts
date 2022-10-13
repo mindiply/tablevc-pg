@@ -48,7 +48,8 @@ import type {
 usePg();
 
 export class PgTable<RecordType>
-  implements Table<RecordType>, WritableTable<RecordType> {
+  implements Table<RecordType>, WritableTable<RecordType>
+{
   private dbTbl: IDBTable<RecordType>;
   private pgDb: IBaseProtocol<any>;
   private readonly keyField: keyof RecordType;
@@ -136,17 +137,16 @@ export class PgTable<RecordType>
       }));
       const keyRecords = await this.pgDb.task<RecordType[]>(db => db.any(sql));
       return keyRecords.map(
-        keyRecord => (keyRecord[this.primaryKey] as unknown) as Id
+        keyRecord => keyRecord[this.primaryKey] as unknown as Id
       );
     }
     const keyRecords = await this.allRecords(true);
     if (filter && isTableFilterExpression(filter)) {
       return [];
     }
-    return (filter
-      ? keyRecords.filter(filter as KeyFilter<RecordType>)
-      : keyRecords
-    ).map(keyRecord => (keyRecord[this.keyField] as unknown) as Id);
+    return (
+      filter ? keyRecords.filter(filter as KeyFilter<RecordType>) : keyRecords
+    ).map(keyRecord => keyRecord[this.keyField] as unknown as Id);
   };
 
   public hasRecord = async (recordId: Id) => {
@@ -213,7 +213,7 @@ export class PgTable<RecordType>
       const existingRecordId = isId(keyId)
         ? keyId
         : this.keyField in record
-        ? ((record[this.keyField] as unknown) as Id)
+        ? (record[this.keyField] as unknown as Id)
         : null;
       if (existingRecordId) {
         existingRecord = (await this.getRecord(existingRecordId)) || null;
@@ -247,7 +247,7 @@ export class PgTable<RecordType>
           recordId: existingRecordId
         });
       } else {
-        let recordToAdd = (record as unknown) as RecordType;
+        let recordToAdd = record as unknown as RecordType;
         if (!(this.primaryKey in recordToAdd) && this.generateMissingId) {
           recordToAdd = {...recordToAdd, [this.primaryKey]: generateNewId()};
         }

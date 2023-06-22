@@ -1,6 +1,6 @@
 {
   "name": "tablevc-pg",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "description": "Postgres table and table history interfaces for tablevc",
   "main": "lib/index.js",
   "scripts": {

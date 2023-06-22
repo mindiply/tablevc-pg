@@ -68,7 +68,9 @@ export async function loadVersionedTableData<RecordType>({
   };
 }
 
-export async function createPgVersionedTable<RecordType>({
+export async function createPgVersionedTable<
+  RecordType extends Record<any, any>
+>({
   baseSqlCondition,
   fromCommitId,
   keyField,

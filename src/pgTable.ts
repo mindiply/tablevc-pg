@@ -47,7 +47,7 @@ import type {
 
 usePg();
 
-export class PgTable<RecordType>
+export class PgTable<RecordType extends Record<any, any>>
   implements Table<RecordType>, WritableTable<RecordType>
 {
   private dbTbl: IDBTable<RecordType>;
@@ -251,11 +251,11 @@ export class PgTable<RecordType>
         if (!(this.primaryKey in recordToAdd) && this.generateMissingId) {
           recordToAdd = {...recordToAdd, [this.primaryKey]: generateNewId()};
         }
-        // @ts-expect-error RecordType does not extend object by default
         const toInsertRecord = omit(recordToAdd, fieldsToOmit);
 
         const sql = tbl(this.dbTbl).insertQrySql({
           returnFields: true,
+          // @ts-expect-error typing issue with records
           fields: createPrmsMap(toInsertRecord)
         });
         const addedRecord: RecordType = await db.one(sql, toInsertRecord);
@@ -279,7 +279,7 @@ type MappedPrms<RecordType> = {
   [K in keyof RecordType]: SQLExpression;
 };
 
-function createPrmsMap<RecordType>(
+function createPrmsMap<RecordType extends Record<any, any>>(
   changes: RecordType
 ): MappedPrms<RecordType> {
   const outPrms: Partial<MappedPrms<RecordType>> = {};
@@ -289,7 +289,7 @@ function createPrmsMap<RecordType>(
   return outPrms as MappedPrms<RecordType>;
 }
 
-export const createPgTable = <RecordType>(
+export const createPgTable = <RecordType extends Record<any, any>>(
   prms: PgTablePrms<RecordType>
 ): Table<RecordType> => {
   return new PgTable(prms);
